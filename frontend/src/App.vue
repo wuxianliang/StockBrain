@@ -2,7 +2,7 @@
 div#app
     img(src="./assets/logo.png")
     router-view
-    a(href="/#/") Hello
+    a(href="/#/") Home
     a(href="/#/dev") Dev
 </template>
 

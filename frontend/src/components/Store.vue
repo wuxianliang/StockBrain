@@ -4,12 +4,183 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
 Vue.use Vuex
+state =
+  indexCode: ''
+  indexKLine:
+    values:[]
+    volumes:[]
+    dates:[]
+  indexTicks:{}
+  #板块
+  className:''
+  globalDate:''
+  #个股
+  stockDate:''
+  stockCode:''
+  stockKLine:
+    values:[]
+    volumes:[]
+    dates:[]
+  stockTicks:
+    time:[]
+    values:[]
+    volumes:[]
+  #查询参数
+  frontOrBack: false #向前或向后查询
+  queryRangeOfTime:''   #查询的时间范围
+  similarity: 0.9  #相似度
+  queryAmount:10 #返回数量
+  queryZone:''   #查询股票范围
+  queryPrice:''  #价格相似
+  queryVolume:'' #成交量相似
+  queryClass:''  #板块走势
+  queryIndex:''  #大盘走势
+
+    #查询结果
+  results:
+    kLine:[]
+    ticks:[]
+    #交互状态
+  kLineFirst: true
+  pickedIndexKDate:''
+  pickedIndexKLine:''
+  pickedIndexKRange:''
+  pickedIndexTicks:''
+  #pickedClassDate:''
+  #pickedClassRange:''
+  pickedStockKDate:''
+  pickedStockKRange:''
+  pickedStockKLine:
+    values:[]
+    volumes:[]
+  pickedStockTicks: []
+
+
+
+#机器自己计算的数据写到getters里
+getters =
+  stockName: (state) ->
+
+  #goodResult: state ->
+  #实时反应的结果数据
+  changesOfClasses: (state) -> #指数->涨幅热度表
+  speedsOfClasses: (state) -> #指数->涨速热度表
+
+  querySimilarKLine: (state) ->  #要查询的k线
+  querySimilarTick: (state) ->   #要查询的分时图
+
+  distributionOfChanges: (state) ->   #涨跌分布
+  distributionOfSpeeds: (state) ->   #涨速分布
+
+  currentSimilarKLine: (state) ->  #同日相似
+  currentSimilarTick: (state) ->   #同时相似
+
+  distributionOfResultKLine: (state) ->
+  distributionOfResultTick: (state) ->
+
+actions =
+  #参数板
+  inputIndexCode: ({commit}, indexCode)->
+    client.invoke 'get_index_k_line', indexCode, (error, res)=> if error then console.log error else
+      k=(x)->
+        date: x.TRADE_DT.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+        volume: x.S_DQ_VOLUME,
+        value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
+      date = (it)->it.date
+      dates = map(date, map(k, res))
+      value = (it)->it.value
+      values= map(value, map(k, res))
+      upDown = (it)-> if it.value[0]>it.value[1] then -1 else 1
+      volume = (it)->it.volume
+      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, res)), map(upDown, map(k, res)))))
+      commit 'CHANGE_INDEX_KLINE', {dates, values, volumes}
+      commit('CHANGE_INDEX', indexCode)
+
+  inputGlobalDate: ({commit}, globalDate)-> commit('CHANGE_GLOBAL_DATE', globalDate)
+  inputClassName: ->
+  inputStockCode: ({commit}, stockCode)->
+    client.invoke 'get_stock_k_line', stockCode, (error, res)=> if error then console.log error else
+      k=(x)->
+        date: x.TRADE_DT.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+        volume: x.S_DQ_VOLUME,
+        value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
+      date = (it)->it.date
+      dates = map(date, map(k, res))
+      value = (it)->it.value
+      values= map(value, map(k, res))
+      upDown = (it)-> if it.value[0]>it.value[1] then -1 else 1
+      volume = (it)->it.volume
+      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, res)), map(upDown, map(k, res)))))
+      commit 'CHANGE_STOCK_KLINE', {dates, values, volumes}
+      commit('CHANGE_STOCK_CODE', stockCode)
+  inputStockDate: ({commit}, stockDate)-> commit('CHANGE_STOCK_DATE', stockDate)
+  inputQueryRangeOfTime: ({commit}, value)-> commit('CHANGE_QUERY_RANGE_OF_TIME', value)
+  inputDirection:({commit})-> commit('CHANGE_DIRECTION')
+  inputSimilarity: ({commit}, similarity)-> commit('CHANGE_SIMILARITY', similarity)
+  inputQueryAmount:({commit}, queryAmount)-> commit('CHANGE_QUERYAMOUNT', queryAmount)
+  #整体k线
+  clickIndexKDate: ({commit}, data)->
+    client.invoke 'get_index_ticks', data, (error, res)=> if error then console.log error else
+      commit 'CHANGE_INDEX_TICKS', res
+      commit('CHANGE_INDEX_K_DATE', data[1])
+  clearIndexTicks:({commit})->
+    commit 'CHANGE_INDEX_TICKS', {time:[], values:[],volumes:[]}
+  pickInexKRange: ({commit}, value)-> commit('CHANGE_INDEX_K_RANGE', value)
+  pickIndexKLine: ({commit}, value)->
+    commit('CHANGE_INDEX_K_LINE', value)
+  clickStockKDate: ({commit}, data)->
+    client.invoke 'get_stock_ticks', data, (error, res)=> if error then console.log error else
+      commit 'CHANGE_STOCK_TICKS', map(reverse, res)
+      commit('CHANGE_STOCK_K_DATE', data[1])
+  pickStockKRange: ({commit}, value)->
+    commit('CHANGE_PICKED_STOCK_K_RANGE', value)
+  pickStockKLine: ({commit}, value)->
+    commit('CHANGE_PICKED_STOCK_K_LINE', value)
+  changeKLineOfClass: ->
+  changeHeadOfDragen: ->
+  clickClassDate: ->
+  pickClassRange: ->
+  clickTickDate: ->
+  pickIndexTicks: ({commit}, value) ->
+    normalize = (it)-> it/value[0]
+    commit('CHANGE_PICKED_INDEX_TICKS', map(normalize, value))
+  pickStockTicks: ({commit}, value) ->
+    normalize = (it)-> it/value[0]
+    commit('CHANGE_PICKED_STOCK_TICKS', map(normalize, value))
+  lookHeadOfDragen: -> #当日板块龙头股
+  Q:({commit}, params)->
+    client.invoke 'get_similar_results', params, (error, res)=> if error then console.log error else
+      result = res
+      commit('CHANGE_RESULTS', result)
+
+
+mutations =
+  CHANGE_INDEX:(state, indexCode)-> state.indexCode = indexCode
+  CHANGE_QUERY_RANGE_OF_TIME: (state, value) -> state.queryRangeOfTime = value
+  CHANGE_DIRECTION:(state)-> state.frontOrBack = !state.frontOrBack
+  CHANGE_STOCK_CODE:(state, value)-> state.stockCode = value
+  CHANGE_GLOBAL_DATE:(state, value)-> state.globalDate = value
+  CHANGE_SIMILARITY:(state, value)-> state.similarity = value
+  CHANGE_QUERYAMOUNT:(state, value)-> state.queryAmount = value
+  CHANGE_INDEX_KLINE:(state, value)-> state.indexKLine = value
+  CHANGE_STOCK_KLINE:(state, value)-> state.stockKLine = value
+  CHANGE_PICKED_INDEX_K_RANGE:(state, value)-> state.pickedIndexKRange = value
+  CHANGE_PICKED_INDEX_K_LINE:(state, value)-> state.pickedIndexKLine = value
+  CHANGE_INDEX_K_DATE:(state, value)-> state.pickedIndexKDate = value
+  CHANGE_INDEX_TICKS:(state, value)-> state.indexTicks = value
+  CHANGE_STOCK_K_DATE:(state, value)-> state.pickedStockKDate = value
+  CHANGE_PICKED_STOCK_K_RANGE:(state, value)->state.pickedStockKRange = value
+  CHANGE_PICKED_STOCK_K_LINE:(state, value)->state.pickedStockKLine = value
+  CHANGE_STOCK_TICKS:(state, value)-> state.stockTicks = value
+  CHANGE_PICKED_STOCK_TICKS:(state, value)->state.pickedStockTicks = value
+  CHANGE_PICKED_INDEX_TICKS:(state, value)->state.pickedIndexTicks = value
+  CHANGE_RESULTS:(state, value)-> state.results = value
 export default new Vuex.Store(
-  state:
-    count: 0
-  mutations:
-    increment: (state) ->
-      state.count++
+  state: state
+  getters: getters
+  actions: actions
+  mutations: mutations
+
 )
 
 </script>

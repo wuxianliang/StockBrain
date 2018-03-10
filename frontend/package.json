@@ -19,7 +19,12 @@
     "vue": "^2.4.2",
     "vue-router": "^2.7.0",
     "vuex": "^2.4.1",
-    "vvpcs-initial-test": "^1.0.0"
+    "vvpcs-initial-test": "^1.0.0",
+    "echarts": "^3.6.2",
+    "iview": "^2.9.1",
+    "iview-loader": "^1.0.0",
+    "lodash": "^4.17.4",
+    "ramda": "^0.24.1"
   },
   "devDependencies": {
     "autoprefixer": "^7.1.2",
