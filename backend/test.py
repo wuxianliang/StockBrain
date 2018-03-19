@@ -41,7 +41,8 @@ def get_k(code):
     return results
 start = clock()
 pool = Pool(processes=50,)
-abc = pool.map_async(get_k, wind_codes)
+abc = pool.imap(get_k, wind_codes)
+print(abc)
 pool.close()
 pool.join()
 

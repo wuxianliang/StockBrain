@@ -35,28 +35,28 @@ def normalize(value):
     return open+close+low+high
 
 #return value have not done
-def results(wind_codes, I):
+def back_or_front(results, param):
     similar_data = wind_codes[I]
-    return similar_data
+    return jsonify({'result':result})
 
-def get_k(wind_codes, k_data, params):
+def get_k(xb, params):
     if params['kLineFirst']:
         dim = len(params['pickedStockKLine']['values'])
     else:
         dim = len(params['pickedStockTicks']['values'])
     #database
-    pool = Pool(processes=50,)
-    partial_base = partial(base, dim=dim, k_data=k_data)
-    bases = pool.map_async(partial_base, wind_codes)
-    pool.close()
-    pool.join()
-    value_base = []
-    for i in bases:
-        value_base.extend(i)
+    #pool = Pool(processes=50,)
+    #partial_base = partial(base, dim=dim, k_data=k_data)
+    #bases = pool.map_async(partial_base, wind_codes)
+    #pool.close()
+    #pool.join()
+    #value_base = []
+    #for i in bases:
+    #    value_base.extend(i)
 
     #value_base = base(dim, wind_codes, k_data)
 
-    xb = np.array(list(map(lambda x: normalize(x['value']), value_base))).astype('float32')
+    #xb = np.array(list(map(lambda x: normalize(x['value']), value_base))).astype('float32')
 
     #query
     kLine = params['pickedStockKLine']['values']
@@ -75,7 +75,7 @@ def get_k(wind_codes, k_data, params):
     start = clock()
     D, I = index.search(xq, 10)
     #have not done
-    result = list(map(lambda x: value_base[x], I[0]))
+    results = list(map(lambda x: xb[x], I[0]))
     end = clock()
     print(end-start)
-    return jsonify({'result':result})
+    return back_or_front(results, paramss['back_or_front']) #not yet

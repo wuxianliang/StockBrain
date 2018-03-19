@@ -14,6 +14,7 @@ from backend import similar_stocks
 from multiprocessing import cpu_count, Pool
 import tushare as ts
 from time import clock
+from functools import partial
 nCores = cpu_count()
 import pandas as pd
 app = Flask(__name__,
@@ -29,17 +30,49 @@ index_data = pre_index_data
 pre_k_data = pd.read_csv('/home/wxl/p/StockBrain/backend/data/ashareeodprices.csv', low_memory=False)
 pre_k_data['TRADE_DT'] = pre_k_data['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9]) #, meta=('TRADE_DT', 'str')
 k_data = pre_k_data
-
-
- #divided by comma in mysql
-#wind_codes = description["S_INFO_WINDCODE"].to_dict().values()#.persist().compute()
-dates = pd.read_csv('/home/wxl/p/StockBrain/backend/data/asharecalendar.csv')["TRADE_DAYS"].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
 def sx(x):
     if x[0] == '6':
         return x + '.SH'
     elif x[0] == '0' or x[0] == '3':
         return x + '.SZ'
 wind_codes = list(map(lambda x: sx(x) , ts.get_stock_basics().index.tolist()))
+dates = pd.read_csv('/home/wxl/p/StockBrain/backend/data/asharecalendar.csv')["TRADE_DAYS"].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
+
+def divid_k(code, dim):
+    stock = pre_k_data.loc[pre_k_data['S_INFO_WINDCODE'] == code].sort_values(by="TRADE_DT").reset_index()
+    close = stock['S_DQ_CLOSE'].tolist()
+    open = stock['S_DQ_OPEN'].tolist()
+    low = stock['S_DQ_LOW'].tolist()
+    high = stock['S_DQ_HIGH'].tolist()
+    date = stock['TRADE_DT'].tolist()
+    results = []
+    print(code+str(dim))
+    i=0
+    while i + dim < len(open):
+        result = {'open':open[i:i+dim], 'close':close[i:i+dim], 'low':low[i:i+dim], 'high':high[i:i+dim]}
+        results.append({'value':result, 'code': code, 'date': date[i]})
+        i+=1
+    return results
+start = clock()
+bases = [[],[]]
+def make_bases():
+    for i in range(10):
+        pool = Pool(processes=50,)
+        j = i+2
+        partial_divid_k = partial(divid_k, dim=j)
+        result = pool.map_async(partial_divid_k, wind_codes)
+        pool.close()
+        pool.join()
+        bases.append(result)
+        #result = []
+        #for i in temp:
+        #    result.extend(i)
+        #= result
+make_bases()
+
+end = clock()
+print(end-start)
+
 
 #ticks =
 #define APIs
@@ -81,7 +114,12 @@ def similar_k():
     params = json.loads(encoding)
     reload(similar_k_line)
     reload(similar_stocks)
-    return similar_k_line.get_k(similar_stocks.get_s(params['queryCode']), k_data, params)
+    codes = similar_stocks.get_s(params['queryCode'])
+    if params['kLineFirst']:
+        dim = len(params['pickedStockKLine']['values'])
+    else:
+        dim = len(params['pickedStockTicks']['values'])
+    return similar_k_line.get_k(bases[dim], params)
 
 @app.route('/api/similar_ticks', methods=['POST'])
 def similar_t():
