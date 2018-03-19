@@ -1,14 +1,14 @@
 <template lang="pug">
-div#app
-    img(src="./assets/logo.png")
-    router-view
-    a(href="/#/") Home
-    a(href="/#/dev") Dev
+  div
+    Home
 </template>
 
 <script lang="coffee">
+import Home from '@/components/Home'
+
 export default
     name: 'app'
+    components: { Home }
 </script>
 
 <style lang="stylus">

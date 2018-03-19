@@ -14,7 +14,6 @@
 
 </template>
 <script lang="coffee">
-import zerorpc from "zerorpc"
 import globalKLine from './GlobalKLine'
 import localKLine from './LocalKLine'
 import globalTick from './GlobalTick'

@@ -11,13 +11,13 @@ import {map, dropLast} from 'ramda'
 import { mapState } from 'vuex'
 calculateMA=(dayCount, kline)->
     result = [];
-    for  i in [0...kline.values.length]
+    for  i in [0...kline.prices.length]
         if i < dayCount
             result.push('-')
             continue
         sum = 0;
         for j in [ 0...dayCount]
-            sum += kline.values[i - j][1]
+            sum += kline.prices[i - j][1]
         result.push(+(sum / dayCount).toFixed(3))
     return result
 
@@ -148,7 +148,7 @@ export default
           {
             name: '日线',
             type: 'candlestick',
-            data: @stockKLine.values,
+            data: @stockKLine.prices,
             itemStyle:
               normal:
                 borderColor: null,
@@ -327,7 +327,7 @@ export default
             {
               name: '日线',
               type: 'candlestick',
-              data: @stockKLine.values,
+              data: @stockKLine.prices,
               itemStyle:
                 normal:
                   borderColor: null,
@@ -388,15 +388,15 @@ export default
 
       kLineChart.on 'brushSelected', (params) =>
         pickDate = (it)=>@$store.state.stockKLine.dates[it]
-        pickValus = (it)=> @$store.state.stockKLine.values[it]
+        pickValues = (it)=> @$store.state.stockKLine.prices[it]
         pickVolumes = (it)=> @$store.state.stockKLine.volumes[it]
-        values = map(pickValus,params.batch[0].selected[0].dataIndex)
+        values = map(pickValues,params.batch[0].selected[0].dataIndex)
         volumes = map(pickVolumes,params.batch[0].selected[0].dataIndex)
         @$store.dispatch 'pickStockKRange', map(pickDate,params.batch[0].selected[0].dataIndex)
         @$store.dispatch 'pickStockKLine', {values:values, volumes:volumes}
       kLineChart.on 'click', (params) =>
-        @$store.dispatch 'clickStockKDate', [@$store.state.stockCode, params.name]
-        @$store.dispatch 'clickIndexKDate', [dropLast(3, @$store.state.indexCode), params.name]
+        @$store.dispatch 'clickStockKDate', {code:@$store.state.stockCode, date:params.name}
+        @$store.dispatch 'clickIndexKDate', {code:dropLast(3, @$store.state.indexCode), date:params.name}
 
 </script>
 

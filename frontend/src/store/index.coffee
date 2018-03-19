@@ -1,13 +1,12 @@
-<!-- Set up the Veux store -->
-<script lang="coffee">
-
 import Vue from 'vue'
 import Vuex from 'vuex'
+import axios from 'axios'
+import {reverse, split, concat, map, zip, zipWith, flatten, values} from 'ramda'
 Vue.use Vuex
 state =
   indexCode: ''
   indexKLine:
-    values:[]
+    prices:[]
     volumes:[]
     dates:[]
   indexTicks:{}
@@ -18,12 +17,12 @@ state =
   stockDate:''
   stockCode:''
   stockKLine:
-    values:[]
+    prices:[]
     volumes:[]
     dates:[]
   stockTicks:
     time:[]
-    values:[]
+    prices:[]
     volumes:[]
   #查询参数
   frontOrBack: false #向前或向后查询
@@ -81,38 +80,41 @@ getters =
 actions =
   #参数板
   inputIndexCode: ({commit}, indexCode)->
-    client.invoke 'get_index_k_line', indexCode, (error, res)=> if error then console.log error else
+    path = 'http://localhost:5000/api/index_k_line'
+    axios.post(path, indexCode).then((res)=>
       k=(x)->
-        date: x.TRADE_DT.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+        date: x.TRADE_DT#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
         volume: x.S_DQ_VOLUME,
         value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
       date = (it)->it.date
-      dates = map(date, map(k, res))
+      dates = map(date, map(k, values(res.data)))
       value = (it)->it.value
-      values= map(value, map(k, res))
+      prices= map(value, map(k, values(res.data)))
       upDown = (it)-> if it.value[0]>it.value[1] then -1 else 1
       volume = (it)->it.volume
-      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, res)), map(upDown, map(k, res)))))
-      commit 'CHANGE_INDEX_KLINE', {dates, values, volumes}
-      commit('CHANGE_INDEX', indexCode)
+      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, values(res.data))), map(upDown, map(k, values(res.data))))))
+      commit 'CHANGE_INDEX_KLINE', {dates, prices, volumes}
+      commit('CHANGE_INDEX', indexCode))
 
   inputGlobalDate: ({commit}, globalDate)-> commit('CHANGE_GLOBAL_DATE', globalDate)
   inputClassName: ->
   inputStockCode: ({commit}, stockCode)->
-    client.invoke 'get_stock_k_line', stockCode, (error, res)=> if error then console.log error else
+    path = 'http://localhost:5000/api/stock_k_line'
+    axios.post(path, stockCode).then((res)=>
+      console.log res.data
       k=(x)->
-        date: x.TRADE_DT.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+        date: x.TRADE_DT#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
         volume: x.S_DQ_VOLUME,
         value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
       date = (it)->it.date
-      dates = map(date, map(k, res))
+      dates = map(date, map(k, values(res.data)))
       value = (it)->it.value
-      values= map(value, map(k, res))
+      prices= map(value, map(k, values(res.data)))
       upDown = (it)-> if it.value[0]>it.value[1] then -1 else 1
       volume = (it)->it.volume
-      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, res)), map(upDown, map(k, res)))))
-      commit 'CHANGE_STOCK_KLINE', {dates, values, volumes}
-      commit('CHANGE_STOCK_CODE', stockCode)
+      volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, values(res.data))), map(upDown, map(k, values(res.data))))))
+      commit 'CHANGE_STOCK_KLINE', {dates, prices, volumes}
+      commit('CHANGE_STOCK_CODE', stockCode))
   inputStockDate: ({commit}, stockDate)-> commit('CHANGE_STOCK_DATE', stockDate)
   inputQueryRangeOfTime: ({commit}, value)-> commit('CHANGE_QUERY_RANGE_OF_TIME', value)
   inputDirection:({commit})-> commit('CHANGE_DIRECTION')
@@ -120,18 +122,21 @@ actions =
   inputQueryAmount:({commit}, queryAmount)-> commit('CHANGE_QUERYAMOUNT', queryAmount)
   #整体k线
   clickIndexKDate: ({commit}, data)->
-    client.invoke 'get_index_ticks', data, (error, res)=> if error then console.log error else
-      commit 'CHANGE_INDEX_TICKS', res
-      commit('CHANGE_INDEX_K_DATE', data[1])
+    path = 'http://localhost:5000/api/index_ticks'
+    axios.post(path, data).then((res)=>
+      commit 'CHANGE_INDEX_TICKS', res.data
+      commit 'CHANGE_INDEX_K_DATE', data.date)
   clearIndexTicks:({commit})->
-    commit 'CHANGE_INDEX_TICKS', {time:[], values:[],volumes:[]}
+    commit 'CHANGE_INDEX_TICKS', {time:[], prices:[],volumes:[]}
   pickInexKRange: ({commit}, value)-> commit('CHANGE_INDEX_K_RANGE', value)
   pickIndexKLine: ({commit}, value)->
     commit('CHANGE_INDEX_K_LINE', value)
   clickStockKDate: ({commit}, data)->
-    client.invoke 'get_stock_ticks', data, (error, res)=> if error then console.log error else
-      commit 'CHANGE_STOCK_TICKS', map(reverse, res)
-      commit('CHANGE_STOCK_K_DATE', data[1])
+    path = 'http://localhost:5000/api/stock_ticks'
+    axios.post(path, data).then((res)=>
+      console.log res.data
+      commit 'CHANGE_STOCK_TICKS', map(reverse, map(values, res.data))
+      commit('CHANGE_STOCK_K_DATE', data.date))
   pickStockKRange: ({commit}, value)->
     commit('CHANGE_PICKED_STOCK_K_RANGE', value)
   pickStockKLine: ({commit}, value)->
@@ -149,9 +154,11 @@ actions =
     commit('CHANGE_PICKED_STOCK_TICKS', map(normalize, value))
   lookHeadOfDragen: -> #当日板块龙头股
   Q:({commit}, params)->
-    client.invoke 'get_similar_results', params, (error, res)=> if error then console.log error else
-      result = res
-      commit('CHANGE_RESULTS', result)
+    path = 'http://localhost:5000/api/similar_k_line'
+    axios.post(path, params).then((res)=>
+      result = values(res.data)
+      console.log res
+      commit('CHANGE_RESULTS', result))
 
 
 mutations =
@@ -182,5 +189,3 @@ export default new Vuex.Store(
   mutations: mutations
 
 )
-
-</script>

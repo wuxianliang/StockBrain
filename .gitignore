@@ -1,0 +1,17 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Node.js
+frontend/node_modules/
+
+
+# Python
+__pycache__
+backend/venv
+backend/data
+*.pyc
+
+# macOs
+.DS_Store

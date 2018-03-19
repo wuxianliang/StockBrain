@@ -7,7 +7,7 @@ Card
 
 <script lang="coffee">
 import echarts from 'echarts'
-import { map } from 'ramda'
+import { map, values} from 'ramda'
 import { mapState } from 'vuex'
 
 export default
@@ -22,7 +22,6 @@ export default
 
   watch:
     indexTicks:->
-      console.log @indexTicks
       tickChart = echarts.getInstanceByDom(@$refs.globalTick)
       option =
         backgroundColor: '#fff'
@@ -58,7 +57,7 @@ export default
         xAxis: [
           {
             type: 'category'
-            data: @indexTicks.time
+            data: values(@indexTicks.time)
             axisLine: lineStyle: color: '#8392A5'
             axisLabel: formatter: (param) ->
               param.substr 5
@@ -69,7 +68,7 @@ export default
           {
             type: 'category'
             gridIndex: 1
-            data: @indexTicks.time
+            data: values(@indexTicks.time)
             axisLine: onZero: false
             axisTick: show: false
             splitLine: show: false
@@ -111,7 +110,7 @@ export default
           {
             name: '价格'
             type: 'line'
-            data: @indexTicks.values
+            data: values(@indexTicks.prices)
             smooth: true
             lineStyle: normal: opacity: 0.5
             symbol: 'none'
@@ -121,20 +120,20 @@ export default
             type: 'bar',
             xAxisIndex: 0,
             yAxisIndex: 1,
-            data: @indexTicks.volumes
+            data: values(@indexTicks.volumes)
           }
           {
             name: '成交量',
             type: 'bar',
             xAxisIndex: 1,
             yAxisIndex: 2,
-            data: @indexTicks.volumes
+            data: values(@indexTicks.volumes)
           }
         ]
 
       tickChart.setOption option
       tickChart.on 'brushSelected', (params) =>
-        pickValues = (it)=>@$store.state.indexTicks.values[it]
+        pickValues = (it)=>@$store.state.indexTicks.prices[it]
         @$store.dispatch 'pickIndexTicks', map(pickValues,params.batch[0].selected[0].dataIndex)
 </script>
 

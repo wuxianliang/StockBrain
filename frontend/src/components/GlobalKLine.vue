@@ -11,13 +11,13 @@ import {map, dropLast} from 'ramda'
 import { mapState } from 'vuex'
 calculateMA=(dayCount, kline)->
     result = [];
-    for  i in [0...kline.values.length]
+    for  i in [0...kline.prices.length]
         if i < dayCount
             result.push('-')
             continue
         sum = 0;
         for j in [ 0...dayCount]
-            sum += kline.values[i - j][1]
+            sum += kline.prices[i - j][1]
         result.push(+(sum / dayCount).toFixed(3))
     return result
 
@@ -148,7 +148,7 @@ export default
           {
             name: '日线',
             type: 'candlestick',
-            data: @indexKLine.values,
+            data: @indexKLine.prices,
             itemStyle:
               normal:
                 borderColor: null,
@@ -327,7 +327,7 @@ export default
             {
               name: '日线',
               type: 'candlestick',
-              data: @indexKLine.values,
+              data: @indexKLine.prices,
               itemStyle:
                 normal:
                   borderColor: null,
@@ -388,11 +388,15 @@ export default
 
       kLineChart.on 'brushSelected', (params) =>
         pickDate = (it)=>@$store.state.indexKLine.dates[it]
-        pickData = (it)=>[@$store.state.indexKLine.values[it], @$store.state.stockKLine.volumes[it]]
+        pickData = (it)=>[@$store.state.indexKLine.prices[it], @$store.state.stockKLine.volumes[it]]
         @$store.dispatch 'pickIndexKRange', map(pickDate,params.batch[0].selected[0].dataIndex)
         @$store.dispatch 'pickIndexKLine', map(pickData,params.batch[0].selected[0].dataIndex)
       kLineChart.on 'click', (params) =>
-        @$store.dispatch 'clickIndexKDate', [dropLast(3, @$store.state.indexCode), params.name]
+        @$store.dispatch 'clickIndexKDate', {code:dropLast(3, @$store.state.indexCode), date:params.name}
+        if @$store.state.stockCode isnt ''
+          console.log {code:dropLast(3, @$store.state.stockCode), date:params.name}
+          @$store.dispatch 'clickStockKDate', {code:@$store.state.stockCode, date:params.name}
+
 </script>
 
 <style lang='stylus'>

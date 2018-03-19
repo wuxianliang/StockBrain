@@ -10,7 +10,7 @@
         Option(value='399006.SZ')
          |创业
     Col(name='2' span='2')
-      Button(@click='showClasses = true') {{pickedStockKDate}}
+      Button(@click='showClasses = true') 板块 {{pickedStockKDate}}
       Modal(v-model='showClasses' title='板块')
         p 板块
     Col(name='3' span='2')
@@ -21,7 +21,7 @@
       DatePicker(v-model='stockDateOnPage' @on-change='changeStockDate' type="date" placeholder="局部日期")
     Col(name='6' span='1')
     Col(name='7' span='1')
-      img.logo(src='src/renderer/assets/logo.jpg' style='height:20px' )
+      img.logo(src='../assets/timg.jpeg' style='height:25px' )
     Col(name='9' span='2')
         DatePicker(:value='queryRangeOfTimeOnPage' type="daterange" :options='optionsOfTime' @on-change='changeQueryRangeOfTime' placeholder="查询时间区间" )
     Col(name='8' span='1')
@@ -140,7 +140,9 @@ export default
     changeQueryAmount:->
       @$store.dispatch('inputQueryAmount', @queryAmountOnPage)
     bigQ:->
+      console.log @stockCode
       params =
+        queryCode:@stockCode
         queryRangeOfTime: @queryRangeOfTime
         similarity: @similarity
         queryAmount: @queryAmount
