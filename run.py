@@ -14,6 +14,7 @@ from backend import similar_stocks
 from multiprocessing import cpu_count, Pool
 import tushare as ts
 from time import clock
+import numpy as np
 from functools import partial
 nCores = cpu_count()
 import pandas as pd
@@ -37,9 +38,9 @@ def sx(x):
         return x + '.SZ'
 wind_codes = list(map(lambda x: sx(x) , ts.get_stock_basics().index.tolist()))
 dates = pd.read_csv('/home/wxl/p/StockBrain/backend/data/asharecalendar.csv')["TRADE_DAYS"].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
-
+print('finish loading data')
 def divid_k(code, dim):
-    stock = pre_k_data.loc[pre_k_data['S_INFO_WINDCODE'] == code].sort_values(by="TRADE_DT").reset_index()
+    stock = k_data.loc[k_data['S_INFO_WINDCODE'] == code].sort_values(by="TRADE_DT").reset_index()
     close = stock['S_DQ_CLOSE'].tolist()
     open = stock['S_DQ_OPEN'].tolist()
     low = stock['S_DQ_LOW'].tolist()
@@ -50,26 +51,34 @@ def divid_k(code, dim):
     i=0
     while i + dim < len(open):
         result = {'open':open[i:i+dim], 'close':close[i:i+dim], 'low':low[i:i+dim], 'high':high[i:i+dim]}
-        results.append({'value':result, 'code': code, 'date': date[i]})
+        results.append({'value':result, 'code': code, 'date': date[i:i+dim]})
         i+=1
     return results
 start = clock()
-bases = [[],[]]
+#not yet finish
+bases = [[], []]
+xb = [[], []]
+def normalize(value):
+    open = list(map(lambda x: x/value['open'][0], value['open']))
+    close = list(map(lambda x: x/value['close'][0], value['close']))
+    low = list(map(lambda x: x/value['low'][0], value['low']))
+    high = list(map(lambda x: x/value['high'][0], value['high']))
+    return open+close+low+high
 def make_bases():
+    xb = []
+    bases = []
     for i in range(10):
         pool = Pool(processes=50,)
         j = i+2
         partial_divid_k = partial(divid_k, dim=j)
-        result = pool.map_async(partial_divid_k, wind_codes)
+        result = [y for x in pool.imap_unordered(partial_divid_k, wind_codes) for y in x]
+        bases.append(result)
+        xb.append(np.array(list(map(lambda x: normalize(x['value']), result))).astype('float32'))
         pool.close()
         pool.join()
-        bases.append(result)
-        #result = []
-        #for i in temp:
-        #    result.extend(i)
-        #= result
-make_bases()
-
+    return {'xb': xb, 'bases':bases}
+bases = bases + make_bases()['bases']
+xb = xb + make_bases()['xb']
 end = clock()
 print(end-start)
 
@@ -119,7 +128,7 @@ def similar_k():
         dim = len(params['pickedStockKLine']['values'])
     else:
         dim = len(params['pickedStockTicks']['values'])
-    return similar_k_line.get_k(bases[dim], params)
+    return similar_k_line.get_k(bases[dim], xb[dim], params, k_data, dates)
 
 @app.route('/api/similar_ticks', methods=['POST'])
 def similar_t():
@@ -135,5 +144,5 @@ def catch_all(path):
     if app.debug:
         return requests.get('http://localhost:8080/{}'.format(path)).text
     return render_template("index.html")
-if __name__ == '__main__':
-    app.run(debug=True, port=5000, processes=50)
+if __name__ == "__main__":
+    app.run(debug=True, port=5000, processes=nCores)

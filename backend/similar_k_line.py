@@ -1,5 +1,7 @@
 import faiss
 import numpy as np
+import pandas as pd
+import tushare as ts
 from flask import jsonify
 from multiprocessing import cpu_count, Pool
 from functools import partial
@@ -9,54 +11,33 @@ from time import clock
 # need to speed up
 
 
-def base(code, dim, k_data):
-    stock = k_data.loc[k_data['S_INFO_WINDCODE'] == code].sort_values(by="TRADE_DT").reset_index()
-    close = stock['S_DQ_CLOSE'].tolist()
-    open = stock['S_DQ_OPEN'].tolist()
-    low = stock['S_DQ_LOW'].tolist()
-    high = stock['S_DQ_HIGH'].tolist()
-    date = stock['TRADE_DT'].tolist()
-        #data =  {'open':open, 'close': close, 'high': high, 'low': low, 'date': date, 'code': code}
-    results = []
-    print(code)
-    i=0
-    while i + dim < len(open):
-        result = {'open':open[i:i+dim], 'close':close[i:i+dim], 'low':low[i:i+dim], 'high':high[i:i+dim]}
-        results.append({'value':result, 'code': code, 'date': date[i]})
-        i+=1
+#too slow
+def back_and_front(results, k_data, dates):
+    kResults =[]
+    for item in results:
+        a = clock()
+        stock = k_data.loc[k_data['S_INFO_WINDCODE'] == item['code']]
+        b = clock()
+        stock["TRADE_DT"] = pd.to_datetime(stock['TRADE_DT'])
+        stock = stock.set_index('TRADE_DT', drop=False).sort_index()
+        #b = clock()
+        print(b - a)
+        c = clock()
+        dates = ts.trade_cal()
+        open_dates = dates.loc[dates['isOpen']==1].reset_index()
+        start = open_dates.loc[open_dates.loc[open_dates['calendarDate']==item['date'][0]].index -10, 'calendarDate'].values[0]
+        item['date'].reverse()
+        end = open_dates.loc[open_dates.loc[open_dates['calendarDate']==item['date'][0]].index +10, 'calendarDate'].values[0]
+        kResults.append(stock[start:end].T.to_json())
+        d = clock()
+        print(d-c)
+    return kResults
 
-    return results
-
-def normalize(value):
-    open = list(map(lambda x: x/value['open'][0], value['open']))
-    close = list(map(lambda x: x/value['close'][0], value['close']))
-    low = list(map(lambda x: x/value['low'][0], value['low']))
-    high = list(map(lambda x: x/value['high'][0], value['high']))
-    return open+close+low+high
-
-#return value have not done
-def back_or_front(results, param):
-    similar_data = wind_codes[I]
-    return jsonify({'result':result})
-
-def get_k(xb, params):
+def get_k(bases, xb, params, k_data, dates):
     if params['kLineFirst']:
         dim = len(params['pickedStockKLine']['values'])
     else:
         dim = len(params['pickedStockTicks']['values'])
-    #database
-    #pool = Pool(processes=50,)
-    #partial_base = partial(base, dim=dim, k_data=k_data)
-    #bases = pool.map_async(partial_base, wind_codes)
-    #pool.close()
-    #pool.join()
-    #value_base = []
-    #for i in bases:
-    #    value_base.extend(i)
-
-    #value_base = base(dim, wind_codes, k_data)
-
-    #xb = np.array(list(map(lambda x: normalize(x['value']), value_base))).astype('float32')
 
     #query
     kLine = params['pickedStockKLine']['values']
@@ -68,14 +49,16 @@ def get_k(xb, params):
 
     xq = np.array( [np.array(query)]).astype('float32')
 
-
+    ngpus = faiss.get_num_gpus()
     #build index
-    index = faiss.IndexFlatL2(dim*4)
-    index.add(xb)
+    cpu_index = faiss.IndexFlatL2(dim*4)
+    gpu_index = faiss.index_cpu_to_all_gpus(cpu_index)
+    gpu_index.add(xb)
     start = clock()
-    D, I = index.search(xq, 10)
+    D, I = gpu_index.search(xq, 10)
     #have not done
-    results = list(map(lambda x: xb[x], I[0]))
+    results = list(map(lambda x: bases[x], I[0]))
     end = clock()
     print(end-start)
-    return back_or_front(results, paramss['back_or_front']) #not yet
+
+    return jsonify(back_and_front(results, k_data, dates)) #not yet

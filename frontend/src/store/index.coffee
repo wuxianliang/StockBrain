@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
 import axios from 'axios'
+import dateformat from 'dateformat'
 import {reverse, split, concat, map, zip, zipWith, flatten, values} from 'ramda'
 Vue.use Vuex
 state =
@@ -36,9 +37,7 @@ state =
   queryIndex:''  #大盘走势
 
     #查询结果
-  results:
-    kLine:[]
-    ticks:[]
+  kResults:[]
     #交互状态
   kLineFirst: true
   pickedIndexKDate:''
@@ -156,9 +155,31 @@ actions =
   Q:({commit}, params)->
     path = 'http://localhost:5000/api/similar_k_line'
     axios.post(path, params).then((res)=>
-      result = values(res.data)
-      console.log res
-      commit('CHANGE_RESULTS', result))
+
+      results = values(res.data)
+      #results = values(values(res.data)[0])
+      kResults = []
+      for stock in results
+        stock = values(JSON.parse(stock))
+        k=(x)->
+          code: x.S_INFO_WINDCODE #not yet
+          date: dateformat(x.TRADE_DT, 'isoDate')#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+          volume: x.S_DQ_VOLUME,
+          value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
+        date = (it)->it.date
+        dates = map(date, map(k, stock))
+
+        code = map(((it)->it.code), map(k, stock))[0]
+
+        value = (it)->it.value
+        prices= map(value, map(k, stock))
+
+        upDown = (it)-> if it.value[0]>it.value[1] then -1 else 1
+        volume = (it)->it.volume
+        volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, stock)), map(upDown, map(k, stock)))))
+        kResults.push({code, dates, prices, volumes})
+      console.log kResults
+      commit('CHANGE_RESULTS', kResults))
 
 
 mutations =
@@ -181,7 +202,7 @@ mutations =
   CHANGE_STOCK_TICKS:(state, value)-> state.stockTicks = value
   CHANGE_PICKED_STOCK_TICKS:(state, value)->state.pickedStockTicks = value
   CHANGE_PICKED_INDEX_TICKS:(state, value)->state.pickedIndexTicks = value
-  CHANGE_RESULTS:(state, value)-> state.results = value
+  CHANGE_RESULTS:(state, value)-> state.kResults = value
 export default new Vuex.Store(
   state: state
   getters: getters
