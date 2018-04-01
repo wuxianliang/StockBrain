@@ -1,13 +1,14 @@
 import dask.dataframe as dd
 from dask.multiprocessing import get
-import pandas as pd
+#import pandas as pd
+import ray.dataframe as pd
 import numpy as np
 from time import clock
 from multiprocessing import cpu_count, Pool
 from numba import jit
 import tushare as ts
 import faiss
-
+import seglearn as sgl
 '''
 a = pd.DataFrame([1,2,3])
 print(a[0:10])
@@ -22,22 +23,31 @@ d['date'].reverse()
 end = open_dates.loc[open_dates.loc[open_dates['calendarDate']=='2014-03-26'].index +10, 'calendarDate']
 print(end.values[0])
 '''
+a = clock()
 k_data = pd.read_csv('/home/wxl/p/StockBrain/backend/data/ashareeodprices.csv', low_memory=False)
+stock = k_data.query('S_INFO_WINDCODE == "600031.SH"')
+stocks = stock[:]
+stocks['TRADE_DT'] = stocks['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9]) #, meta=('TRADE_DT', 'str')
+stocks.set_index('TRADE_DT', inplace=True)
+b = clock()
 #print('finish reading')
 #pre_k_data = dd.from_pandas(pre_k_data, npartitions = nCores)
 #pre_k_data['TRADE_DT'] = pre_k_data.map_partitions(lambda df: df['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9]) )
 #k_data['TRADE_DT'] = k_data['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
 #print('finish design')
 #pre_k_data.compute(get=get)
-a = clock()
-stock = k_data.loc[k_data['S_INFO_WINDCODE'] == '600031.SH']
+
+#stock = k_data.loc[k_data['S_INFO_WINDCODE'] == '600031.SH']
 #print(stock.index)
 
 #stock["TRADE_DT"] = pd.to_datetime(stock['TRADE_DT'])
-stock = stock.set_index('TRADE_DT')
-b = clock()
+#stock = stock.set_index('TRADE_DT')
+
 print(b-a)
-print(stock['2013-01-01':'2013-02-01'].T.to_json())
+print(stocks.axes)
+print(stocks.T.axes)
+
+#print(stock['2013-01-01':'2013-02-01'].T.to_json())
 
 '''
 def sx(x):

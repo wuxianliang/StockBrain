@@ -1,5 +1,6 @@
 import tushare as ts
 import pandas as pd
+#import ray.dataframe as pd
 '''
 return the area of query. the rule is with the same industry, area, small , concept or similar value.
 '''

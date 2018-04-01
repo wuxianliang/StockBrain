@@ -100,9 +100,8 @@ actions =
   inputStockCode: ({commit}, stockCode)->
     path = 'http://localhost:5000/api/stock_k_line'
     axios.post(path, stockCode).then((res)=>
-      console.log res.data
       k=(x)->
-        date: x.TRADE_DT#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+        date: x.TRADE_DT#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
         volume: x.S_DQ_VOLUME,
         value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
       date = (it)->it.date
@@ -133,7 +132,7 @@ actions =
   clickStockKDate: ({commit}, data)->
     path = 'http://localhost:5000/api/stock_ticks'
     axios.post(path, data).then((res)=>
-      console.log res.data
+      console.log map(values, res.data)
       commit 'CHANGE_STOCK_TICKS', map(reverse, map(values, res.data))
       commit('CHANGE_STOCK_K_DATE', data.date))
   pickStockKRange: ({commit}, value)->
@@ -157,18 +156,20 @@ actions =
     axios.post(path, params).then((res)=>
 
       results = values(res.data)
+
       #results = values(values(res.data)[0])
       kResults = []
       for stock in results
         stock = values(JSON.parse(stock))
+
         k=(x)->
           code: x.S_INFO_WINDCODE #not yet
-          date: dateformat(x.TRADE_DT, 'isoDate')#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
+          date: x.TRADE_DT#.toString("utf8"),#.slice(0, 4)+"-"+x.TRADE_DT.toString("utf8").slice(4, 6)+"-"+x.TRADE_DT.toString("utf8").slice(6, 9),
           volume: x.S_DQ_VOLUME,
           value: [x.S_DQ_OPEN, x.S_DQ_CLOSE, x.S_DQ_LOW, x.S_DQ_HIGH]
         date = (it)->it.date
         dates = map(date, map(k, stock))
-
+        console.log dates
         code = map(((it)->it.code), map(k, stock))[0]
 
         value = (it)->it.value
@@ -179,6 +180,7 @@ actions =
         volumes= map(flatten, zip([0...dates.length], zip(map(volume, map(k, stock)), map(upDown, map(k, stock)))))
         kResults.push({code, dates, prices, volumes})
       console.log kResults
+      console.log 'store'
       commit('CHANGE_RESULTS', kResults))
 
 

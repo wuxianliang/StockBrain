@@ -395,6 +395,7 @@ export default
         @$store.dispatch 'pickStockKRange', map(pickDate,params.batch[0].selected[0].dataIndex)
         @$store.dispatch 'pickStockKLine', {values:values, volumes:volumes}
       kLineChart.on 'click', (params) =>
+        console.log @$store.state.stockCode
         @$store.dispatch 'clickStockKDate', {code:@$store.state.stockCode, date:params.name}
         @$store.dispatch 'clickIndexKDate', {code:dropLast(3, @$store.state.indexCode), date:params.name}
 

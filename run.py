@@ -18,72 +18,76 @@ import numpy as np
 from functools import partial
 nCores = cpu_count()
 import pandas as pd
+#import ray.dataframe as rpd
 app = Flask(__name__,
             static_folder = "./dist/static",
             template_folder = "./dist")
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
-
+start = clock()
 #prepare raw data
-rawkdata = []
 pre_index_data = pd.read_csv('/home/wxl/p/StockBrain/backend/data/aindexeodprices.csv', low_memory=False)
-pre_index_data['TRADE_DT'] = pre_index_data['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9]) #, meta=('TRADE_DT', 'str')
 index_data = pre_index_data
+#index_data['TRADE_DT'] = index_data['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
 pre_k_data = pd.read_csv('/home/wxl/p/StockBrain/backend/data/ashareeodprices.csv', low_memory=False)
-pre_k_data['TRADE_DT'] = pre_k_data['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9]) #, meta=('TRADE_DT', 'str')
 k_data = pre_k_data
+
 def sx(x):
     if x[0] == '6':
         return x + '.SH'
     elif x[0] == '0' or x[0] == '3':
         return x + '.SZ'
 wind_codes = list(map(lambda x: sx(x) , ts.get_stock_basics().index.tolist()))
-dates = pd.read_csv('/home/wxl/p/StockBrain/backend/data/asharecalendar.csv')["TRADE_DAYS"].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
+dates = ts.trade_cal()
 print('finish loading data')
+end = clock()
+print(end -start)
 def divid_k(code, dim):
-    stock = k_data.loc[k_data['S_INFO_WINDCODE'] == code].sort_values(by="TRADE_DT").reset_index()
+    stock = k_data.query("S_INFO_WINDCODE == @code").sort_values(by="TRADE_DT").reset_index()
     close = stock['S_DQ_CLOSE'].tolist()
     open = stock['S_DQ_OPEN'].tolist()
     low = stock['S_DQ_LOW'].tolist()
     high = stock['S_DQ_HIGH'].tolist()
+    #stock['TRADE_DT'] = stock['TRADE_DT'].apply(lambda x: str(x)[0:4]+"-"+str(x)[4:6]+"-"+str(x)[6:9])
     date = stock['TRADE_DT'].tolist()
+    volume = stock['S_DQ_VOLUME'].tolist()
     results = []
     print(code+str(dim))
     i=0
     while i + dim < len(open):
         result = {'open':open[i:i+dim], 'close':close[i:i+dim], 'low':low[i:i+dim], 'high':high[i:i+dim]}
-        results.append({'value':result, 'code': code, 'date': date[i:i+dim]})
+        results.append({'value':result, 'code': code, 'date': date[i:i+dim], 'volume': volume[i:i+dim]})
         i+=1
     return results
-start = clock()
-#not yet finish
-bases = [[], []]
-xb = [[], []]
-def normalize(value):
+
+
+init = [[],[]]
+def normalize(value, volume):
     open = list(map(lambda x: x/value['open'][0], value['open']))
-    close = list(map(lambda x: x/value['close'][0], value['close']))
-    low = list(map(lambda x: x/value['low'][0], value['low']))
-    high = list(map(lambda x: x/value['high'][0], value['high']))
-    return open+close+low+high
+    close = list(map(lambda x: x/value['open'][0], value['close']))
+    low = list(map(lambda x: x/value['open'][0], value['low']))
+    high = list(map(lambda x: x/value['open'][0], value['high']))
+    if volume[0]==0:
+        volume = list(map(lambda x: 1, volume))
+    else:
+        volume = list(map(lambda x: x/volume[0], volume))
+    return open+close+low+high+volume
 def make_bases():
     xb = []
     bases = []
     for i in range(10):
-        pool = Pool(processes=50,)
+        pool = Pool(processes=nCores,)
         j = i+2
         partial_divid_k = partial(divid_k, dim=j)
-        result = [y for x in pool.imap_unordered(partial_divid_k, wind_codes) for y in x]
+        result = [y for x in pool.imap_unordered(partial_divid_k, wind_codes) for y in x] # for real-world
         bases.append(result)
-        xb.append(np.array(list(map(lambda x: normalize(x['value']), result))).astype('float32'))
+        xb.append(np.array(list(map(lambda x: normalize(x['value'], x['volume']), result))).astype('float32'))
         pool.close()
         pool.join()
     return {'xb': xb, 'bases':bases}
-bases = bases + make_bases()['bases']
-xb = xb + make_bases()['xb']
-end = clock()
-print(end-start)
+base = make_bases()
+bases = init + base['bases']
+xb = init + base['xb']
 
-
-#ticks =
 #define APIs
 @app.route('/api/random')
 def test():
@@ -145,4 +149,4 @@ def catch_all(path):
         return requests.get('http://localhost:8080/{}'.format(path)).text
     return render_template("index.html")
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, processes=nCores)
+    app.run(debug=False, port=5000, processes=nCores)
